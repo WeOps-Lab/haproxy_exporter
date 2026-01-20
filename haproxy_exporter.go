@@ -593,6 +593,27 @@ func main() {
 	kingpin.Parse()
 	logger := promlog.New(promlogConfig)
 
+	scrapeURI := *haProxyScrapeURI
+	u, err := url.Parse(scrapeURI)
+	if err != nil {
+		level.Error(logger).Log("msg", "Error parsing scrape URI", "err", err)
+		os.Exit(1)
+	}
+
+	if (u.Scheme == "http" || u.Scheme == "https") && (u.Path == "" || u.Path == "/") && u.RawQuery == "" {
+		u.Path = "/stats"
+		u.RawQuery = "stats;csv"
+		level.Info(logger).Log("msg", "Auto-appending stats path", "uri", u.Redacted())
+	}
+
+	if username := os.Getenv("HAPROXY_STATS_USER"); username != "" {
+		if password := os.Getenv("HAPROXY_STATS_PASS"); password != "" {
+			u.User = url.UserPassword(username, password)
+			level.Info(logger).Log("msg", "Using credentials from environment variables")
+		}
+	}
+	scrapeURI = u.String()
+
 	selectedServerMetrics, err := filterServerMetrics(*haProxyServerMetricFields)
 	if err != nil {
 		level.Error(logger).Log("msg", "Error filtering server metrics", "err", err)
@@ -602,7 +623,7 @@ func main() {
 	level.Info(logger).Log("msg", "Starting haproxy_exporter", "version", version.Info())
 	level.Info(logger).Log("msg", "Build context", "context", version.BuildContext())
 
-	exporter, err := NewExporter(*haProxyScrapeURI, *haProxySSLVerify, *httpProxyFromEnv, selectedServerMetrics, *haProxyServerExcludeStates, *haProxyTimeout, logger)
+	exporter, err := NewExporter(scrapeURI, *haProxySSLVerify, *httpProxyFromEnv, selectedServerMetrics, *haProxyServerExcludeStates, *haProxyTimeout, logger)
 	if err != nil {
 		level.Error(logger).Log("msg", "Error creating an exporter", "err", err)
 		os.Exit(1)
