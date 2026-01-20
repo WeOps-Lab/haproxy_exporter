@@ -628,18 +628,20 @@ func main() {
 		level.Error(logger).Log("msg", "Error creating an exporter", "err", err)
 		os.Exit(1)
 	}
-	prometheus.MustRegister(exporter)
-	prometheus.MustRegister(version.NewCollector("haproxy_exporter"))
+
+	registry := prometheus.NewRegistry()
+	registry.MustRegister(exporter)
+	registry.MustRegister(version.NewCollector("haproxy_exporter"))
 
 	if *haProxyPidFile != "" {
 		procExporter := collectors.NewProcessCollector(collectors.ProcessCollectorOpts{
 			PidFn:     prometheus.NewPidFileFn(*haProxyPidFile),
 			Namespace: namespace,
 		})
-		prometheus.MustRegister(procExporter)
+		registry.MustRegister(procExporter)
 	}
 
-	http.Handle(*metricsPath, promhttp.Handler())
+	http.Handle(*metricsPath, promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`<html>
              <head><title>Haproxy Exporter</title></head>
