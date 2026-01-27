@@ -601,7 +601,7 @@ func main() {
 	}
 
 	if (u.Scheme == "http" || u.Scheme == "https") && (u.Path == "" || u.Path == "/") && u.RawQuery == "" {
-		u.Path = "/stats"
+		u.Path = "/stats/baz"
 		u.RawQuery = "stats;csv"
 		level.Info(logger).Log("msg", "Auto-appending stats path", "uri", u.Redacted())
 	}
